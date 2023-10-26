@@ -4,9 +4,37 @@ import xml.etree.ElementTree as ET
 from glob import glob
 from pathlib import Path
 from typing import List
+import json
 
 import pandas as pd
 from tqdm import tqdm
+
+########################
+# CUSTOM
+########################
+
+
+def ulca(root_path, meta_file=None, **kwargs):
+    """ULCA Bhashini Formatter"""
+    transcript_path = os.path.join(root_path, "data.json")
+    with open(transcript_path, 'r') as f:
+        transcript = json.load(f)
+    dataset_name = os.path.basename(root_path)
+    speaker_id = dataset_name[dataset_name.find("Phase") + 7: ] # IITM_TTS_data_Phase2_Telugu_mono_male
+    items = []
+    for sample in transcript:
+        wav_path = os.path.join(root_path, sample["audioFilename"])
+        if os.path.isfile(wav_path):
+            items.append({
+                "text": sample["text"].strip(),
+                "audio_file": wav_path,
+                "speaker_name": "ulca_" + speaker_id,
+                "root_path": root_path
+            })
+        else:
+            print(f" [!] wav files don't exist - {wav_path}")
+    return items
+
 
 ########################
 # DATASETS

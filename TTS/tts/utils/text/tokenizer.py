@@ -73,8 +73,8 @@ class TTSTokenizer:
                 # discard but store not found characters
                 if char not in self.not_found_characters:
                     self.not_found_characters.append(char)
-                    print(text)
-                    print(f" [!] Character {repr(char)} not found in the vocabulary. Discarding it.")
+                    # print(text)
+                    # print(f" [!] Character {repr(char)} not found in the vocabulary. Discarding it.")
         return token_ids
 
     def decode(self, token_ids: List[int]) -> str:
@@ -119,16 +119,16 @@ class TTSTokenizer:
         """Converts a sequence of token IDs to a string of text."""
         return self.decode(id_sequence)
 
-    def pad_with_bos_eos(self, char_sequence: List[str]):
+    def pad_with_bos_eos(self, char_sequence: List[int]) -> List[int]:
         """Pads a sequence with the special BOS and EOS characters."""
         return [self.characters.bos_id] + list(char_sequence) + [self.characters.eos_id]
 
-    def intersperse_blank_char(self, char_sequence: List[str], use_blank_char: bool = False):
+    def intersperse_blank_char(self, char_sequence: List[int], use_blank_char: bool = False) -> List[int]:
         """Intersperses the blank character between characters in a sequence.
 
         Use the ```blank``` character if defined else use the ```pad``` character.
         """
-        char_to_use = self.characters.blank_id if use_blank_char else self.characters.pad
+        char_to_use = self.characters.blank_id if use_blank_char else self.characters.pad_id
         result = [char_to_use] * (len(char_sequence) * 2 + 1)
         result[1::2] = char_sequence
         return result

@@ -1,3 +1,7 @@
+# runs
+recipes/ljspeech/tacotron2-DCA/run-*/
+
+
 WadaSNR/
 .idea/
 *.pyc
