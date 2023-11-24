@@ -1,4 +1,4 @@
-name: style-check
+name: xtts-tests
 
 on:
   push:
@@ -18,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: [3.9]
+        python-version: [3.9, "3.10", "3.11"]
         experimental: [false]
     steps:
       - uses: actions/checkout@v3
@@ -31,16 +31,23 @@ jobs:
           cache-dependency-path: 'requirements*'
       - name: check OS
         run: cat /etc/os-release
+      - name: set ENV
+        run: export TRAINER_TELEMETRY=0
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y git make gcc
+          sudo apt-get install -y --no-install-recommends git make gcc
+          sudo apt-get install espeak
+          sudo apt-get install espeak-ng
           make system-deps
       - name: Install/upgrade Python setup deps
         run: python3 -m pip install --upgrade pip setuptools wheel
+      - name: Replace scarf urls
+        run: |
+          sed -i 's/https:\/\/coqui.gateway.scarf.sh\//https:\/\/github.com\/coqui-ai\/TTS\/releases\/download\//g' TTS/.models.json
       - name: Install TTS
         run: |
           python3 -m pip install .[all]
           python3 setup.py egg_info
-      - name: Style check
-        run: make style
+      - name: Unit tests
+        run: make test_xtts
