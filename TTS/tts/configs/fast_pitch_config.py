@@ -140,6 +140,7 @@ class FastPitchConfig(BaseTTSConfig):
     aligner_loss_alpha: float = 1.0
     pitch_loss_alpha: float = 0.1
     dur_loss_alpha: float = 0.1
+    energy_loss_alpha: float = 0.1
     binary_align_loss_alpha: float = 0.1
     binary_loss_warmup_epochs: int = 150
 
@@ -151,6 +152,8 @@ class FastPitchConfig(BaseTTSConfig):
     # dataset configs
     compute_f0: bool = True
     f0_cache_path: str = None
+    compute_energy: bool = False
+    energy_cache_path: str = None
 
     # testing
     test_sentences: List[str] = field(
