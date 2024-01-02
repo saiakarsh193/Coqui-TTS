@@ -52,6 +52,7 @@ audio_config = BaseAudioConfig(
 
 config = HifiganConfig(
     run_name="hifigan_hindi_ulca",
+    audio=audio_config,
     batch_size=128,
     eval_batch_size=128,
     num_loader_workers=4,
@@ -93,6 +94,8 @@ model = GAN(config, ap)
 
 # init the trainer and 🚀
 trainer = Trainer(
-    TrainerArgs(), config, output_path, model=model, train_samples=train_samples, eval_samples=eval_samples
+    TrainerArgs(
+        # continue_path="hifigan_hindi_ulca-December-27-2023_05+20PM-72cf7551"
+    ), config, output_path, model=model, train_samples=train_samples, eval_samples=eval_samples
 )
 trainer.fit()

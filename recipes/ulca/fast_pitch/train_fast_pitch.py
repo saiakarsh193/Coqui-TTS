@@ -35,14 +35,14 @@ audio_config = BaseAudioConfig(
     preemphasis=0.0,
 )
 
-# model_args = ForwardTTSArgs(
-#     use_energy=True
-# )
+model_args = ForwardTTSArgs(
+    use_energy=True
+)
 
 config = FastPitchConfig(
-    # model_args=model_args,
+    model_args=model_args,
     # run_name="fast_pitch_telugu_ulca",
-    run_name="fast_pitch_hindi_ulca",
+    run_name="engy_fast_pitch_hindi_ulca",
     audio=audio_config,
     batch_size=128,
     eval_batch_size=128,
@@ -57,7 +57,7 @@ config = FastPitchConfig(
     energy_cache_path=os.path.join(output_path, "energy_cache_hindi"),
     run_eval=True,
     test_delay_epochs=-1,
-    epochs=1000,
+    epochs=2000,
     text_cleaner="multilingual_cleaners",
     characters=CharactersConfig(
         pad="_",
@@ -99,8 +99,8 @@ train_samples, eval_samples = load_tts_samples(
 
 model = ForwardTTS(config, ap, tokenizer, speaker_manager=None)
 trainer = Trainer(
-    # TrainerArgs(),
-    TrainerArgs(continue_path="fast_pitch_hindi_ulca-December-21-2023_08+11PM-72cf7551"),
-    config, output_path, model=model, train_samples=train_samples, eval_samples=eval_samples
+    TrainerArgs(
+        # continue_path="fast_pitch_hindi_ulca-December-21-2023_08+11PM-72cf7551"
+    ), config, output_path, model=model, train_samples=train_samples, eval_samples=eval_samples
 )
 trainer.fit()

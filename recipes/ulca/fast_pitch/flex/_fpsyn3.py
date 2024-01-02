@@ -129,8 +129,8 @@ class FPSyn:
         wav = list(self.tts_syn(text))
         process_time = time.time() - start_time
         audio_time = len(wav) / self.tts_config.audio["sample_rate"]
-        # print(f" > Processing time: {process_time}")
-        # print(f" > Real-time factor: {process_time / audio_time}")
+        print(f" > Processing time: {process_time}")
+        print(f" > Real-time factor: {process_time / audio_time}")
         return wav
     
     def save_wav(self, wav: List[int], path: str, pipe_out=None) -> None:
