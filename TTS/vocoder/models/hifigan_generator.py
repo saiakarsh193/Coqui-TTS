@@ -247,7 +247,7 @@ class HifiganGenerator(torch.nn.Module):
             Tensor: [B, 1, T]
         """
         o = self.conv_pre(x)
-        if hasattr(self, "cond_layer"):
+        if hasattr(self, "cond_layer") and g != None:
             o = o + self.cond_layer(g)
         for i in range(self.num_upsamples):
             o = F.leaky_relu(o, LRELU_SLOPE)

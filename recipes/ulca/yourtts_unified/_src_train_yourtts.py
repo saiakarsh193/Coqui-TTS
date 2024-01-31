@@ -24,7 +24,7 @@ torch.set_num_threads(24)
 CURRENT_PATH = os.path.dirname(os.path.abspath(__file__))
 
 # Name of the run for the Trainer
-RUN_NAME = "yourtts_hin_tel_lj"
+RUN_NAME = "YourTTS-EN-VCTK"
 
 # Path where you want to save the models outputs (configs, checkpoints and tensorboard logs)
 OUT_PATH = os.path.dirname(os.path.abspath(__file__))  # "/raid/coqui/Checkpoints/original-YourTTS/"
@@ -32,47 +32,54 @@ OUT_PATH = os.path.dirname(os.path.abspath(__file__))  # "/raid/coqui/Checkpoint
 # If you want to do transfer learning and speedup your training you can set here the path to the original YourTTS model
 RESTORE_PATH = None  # "/root/.local/share/tts/tts_models--multilingual--multi-dataset--your_tts/model_file.pth"
 
-# To resume training from a run directory
-CONTINUE_PATH = None
-
 # This paramter is useful to debug, it skips the training epochs and just do the evaluation  and produce the test sentences
 SKIP_TRAIN_EPOCH = False
 
 # Set here the batch size to be used in training and evaluation
-BATCH_SIZE = 128
+BATCH_SIZE = 32
 
 # Training Sampling rate and the target sampling rate for resampling the downloaded dataset (Note: If you change this you might need to redownload the dataset !!)
 # Note: If you add new datasets, please make sure that the dataset sampling rate and this parameter are matching, otherwise resample your audios
-SAMPLE_RATE = 22050
+SAMPLE_RATE = 16000
 
 # Max audio length in seconds to be used in training (every audio bigger than it will be ignored)
-MAX_AUDIO_LEN_IN_SECONDS = 15
+MAX_AUDIO_LEN_IN_SECONDS = 10
+
+### Download VCTK dataset
+VCTK_DOWNLOAD_PATH = os.path.join(CURRENT_PATH, "VCTK")
+# Define the number of threads used during the audio resampling
+NUM_RESAMPLE_THREADS = 10
+# Check if VCTK dataset is not already downloaded, if not download it
+if not os.path.exists(VCTK_DOWNLOAD_PATH):
+    print(">>> Downloading VCTK dataset:")
+    download_vctk(VCTK_DOWNLOAD_PATH)
+    resample_files(VCTK_DOWNLOAD_PATH, SAMPLE_RATE, file_ext="flac", n_jobs=NUM_RESAMPLE_THREADS)
 
 # init configs
-hin_config = BaseDatasetConfig(
-    formatter="ulca",
-    dataset_name="ulca",
-    path="/data/saiakarsh/data/ytts_coq/IITM_TTS_data_Phase2_Hindi_mono_male",
-    language="hn"
-)
-
-tel_config = BaseDatasetConfig(
-    formatter="ulca",
-    dataset_name="ulca",
-    path="/data/saiakarsh/data/ytts_coq/IITM_TTS_data_Phase2_Telugu_mono_male",
-    language="tl",
-)
-
-eng_config = BaseDatasetConfig(
-    formatter="ljspeech",
-    dataset_name="ljspeech",
-    path="/data/saiakarsh/data/ytts_coq/ljspeech",
-    meta_file_train="metadata.csv",
+vctk_config = BaseDatasetConfig(
+    formatter="vctk",
+    dataset_name="vctk",
+    meta_file_train="",
+    meta_file_val="",
+    path=VCTK_DOWNLOAD_PATH,
     language="en",
+    ignored_speakers=[
+        "p261",
+        "p225",
+        "p294",
+        "p347",
+        "p238",
+        "p234",
+        "p248",
+        "p335",
+        "p245",
+        "p326",
+        "p302",
+    ],  # Ignore the test speakers to full replicate the paper experiment
 )
 
 # Add here all datasets configs, in our case we just want to train with the VCTK dataset then we need to add just VCTK. Note: If you want to add new datasets, just add them here and it will automatically compute the speaker embeddings (d-vectors) for this new dataset :)
-DATASETS_CONFIG_LIST = [hin_config, tel_config, eng_config]
+DATASETS_CONFIG_LIST = [vctk_config]
 
 ### Extract speaker embeddings
 SPEAKER_ENCODER_CHECKPOINT_PATH = (
@@ -104,6 +111,7 @@ for dataset_conf in DATASETS_CONFIG_LIST:
         )
     D_VECTOR_FILES.append(embeddings_file)
 
+
 # Audio config used in training.
 audio_config = VitsAudioConfig(
     sample_rate=SAMPLE_RATE,
@@ -125,10 +133,10 @@ model_args = VitsArgs(
     speaker_encoder_config_path=SPEAKER_ENCODER_CONFIG_PATH,
     resblock_type_decoder="2",  # In the paper, we accidentally trained the YourTTS using ResNet blocks type 2, if you like you can use the ResNet blocks type 1 like the VITS model
     # Useful parameters to enable the Speaker Consistency Loss (SCL) described in the paper
-    use_speaker_encoder_as_loss=True,
+    # use_speaker_encoder_as_loss=True,
     # Useful parameters to enable multilingual training
-    use_language_embedding=True,
-    embedded_language_dim=4,
+    # use_language_embedding=True,
+    # embedded_language_dim=4,
 )
 
 # General training config, here you can change the batch size and others useful parameters
@@ -168,7 +176,7 @@ config = VitsConfig(
         eos="&",
         bos="*",
         blank=None,
-        characters="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz¯·ßàáâãäæçèéêëìíîïñòóôõöùúûüÿāąćēęěīıłńōőœśūűźżǎǐǒǔабвгдежзийклмнопрстуфхцчшщъыьэюяёєіїґँंःअआइईउऊऋऍऎएऐऑऒओऔकखगघङचछजझञटठडढणतथदधनऩपफबभमयरऱलळऴवशषसह़ऄऽािीुूृॄॅॆेैॉॊोौ्ॐक़ख़ग़ज़ड़ढ़फ़य़ॠ।॥०१२३४५६७८९॰ॲఁంఃఅఆఇఈఉఊఋఎఏఐఒఓఔకఖగఘఙచఛజఝఞటఠడఢణతథదధనపఫబభమయరఱలళవశషసహాిీుూృౄెేైొోౌ్ౕౖౙ౦౩\u200c\u200d–!'(),-.:;? ",
+        characters="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz\u00af\u00b7\u00df\u00e0\u00e1\u00e2\u00e3\u00e4\u00e6\u00e7\u00e8\u00e9\u00ea\u00eb\u00ec\u00ed\u00ee\u00ef\u00f1\u00f2\u00f3\u00f4\u00f5\u00f6\u00f9\u00fa\u00fb\u00fc\u00ff\u0101\u0105\u0107\u0113\u0119\u011b\u012b\u0131\u0142\u0144\u014d\u0151\u0153\u015b\u016b\u0171\u017a\u017c\u01ce\u01d0\u01d2\u01d4\u0430\u0431\u0432\u0433\u0434\u0435\u0436\u0437\u0438\u0439\u043a\u043b\u043c\u043d\u043e\u043f\u0440\u0441\u0442\u0443\u0444\u0445\u0446\u0447\u0448\u0449\u044a\u044b\u044c\u044d\u044e\u044f\u0451\u0454\u0456\u0457\u0491\u2013!'(),-.:;? ",
         punctuations="!'(),-.:;? ",
         phonemes="",
         is_unique=True,
@@ -183,23 +191,35 @@ config = VitsConfig(
     mixed_precision=False,
     test_sentences=[
         [
-            "फसल अच्छी होने के कारण किसान बहुत खुश था",
-            "ulca_Hindi_mono_male",
-            None,
-            "hn",
-        ],
-        [
-            "ఏడు ప్రధాన పెలికాన్ జాతులు ఉన్నాయి గోధుమ పెలికాన్, పెరువియన్ పెలికాన్",
-            "ulca_Telugu_mono_male",
-            None,
-            "tl",
-        ],
-        [
             "It took me quite a long time to develop a voice, and now that I have it I'm not going to be silent.",
-            "ljspeech",
+            "VCTK_p277",
             None,
             "en",
-        ]
+        ],
+        [
+            "Be a voice, not an echo.",
+            "VCTK_p239",
+            None,
+            "en",
+        ],
+        [
+            "I'm sorry Dave. I'm afraid I can't do that.",
+            "VCTK_p258",
+            None,
+            "en",
+        ],
+        [
+            "This cake is great. It's so delicious and moist.",
+            "VCTK_p244",
+            None,
+            "en",
+        ],
+        [
+            "Prior to November 22, 1963.",
+            "VCTK_p305",
+            None,
+            "en",
+        ],
     ],
     # Enable the weighted sampler
     use_weighted_sampler=True,
@@ -219,11 +239,11 @@ train_samples, eval_samples = load_tts_samples(
 )
 
 # Init the model
-model = Vits.init_from_config(config, verbose=False)
+model = Vits.init_from_config(config)
 
 # Init the trainer and 🚀
 trainer = Trainer(
-    TrainerArgs(restore_path=RESTORE_PATH, skip_train_epoch=SKIP_TRAIN_EPOCH, continue_path=CONTINUE_PATH),
+    TrainerArgs(restore_path=RESTORE_PATH, skip_train_epoch=SKIP_TRAIN_EPOCH),
     config,
     output_path=OUT_PATH,
     model=model,

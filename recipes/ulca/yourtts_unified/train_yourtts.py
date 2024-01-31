@@ -24,7 +24,7 @@ torch.set_num_threads(24)
 CURRENT_PATH = os.path.dirname(os.path.abspath(__file__))
 
 # Name of the run for the Trainer
-RUN_NAME = "yourtts_hin_tel_lj"
+RUN_NAME = "YourTTS-ULCA-T2-eht"
 
 # Path where you want to save the models outputs (configs, checkpoints and tensorboard logs)
 OUT_PATH = os.path.dirname(os.path.abspath(__file__))  # "/raid/coqui/Checkpoints/original-YourTTS/"
@@ -39,21 +39,22 @@ CONTINUE_PATH = None
 SKIP_TRAIN_EPOCH = False
 
 # Set here the batch size to be used in training and evaluation
-BATCH_SIZE = 128
+BATCH_SIZE = 110
 
 # Training Sampling rate and the target sampling rate for resampling the downloaded dataset (Note: If you change this you might need to redownload the dataset !!)
 # Note: If you add new datasets, please make sure that the dataset sampling rate and this parameter are matching, otherwise resample your audios
 SAMPLE_RATE = 22050
 
 # Max audio length in seconds to be used in training (every audio bigger than it will be ignored)
-MAX_AUDIO_LEN_IN_SECONDS = 15
+MAX_AUDIO_LEN_IN_SECONDS = 20
 
 # init configs
-hin_config = BaseDatasetConfig(
-    formatter="ulca",
-    dataset_name="ulca",
-    path="/data/saiakarsh/data/ytts_coq/IITM_TTS_data_Phase2_Hindi_mono_male",
-    language="hn"
+eng_config = BaseDatasetConfig(
+    formatter="ljspeech",
+    dataset_name="ljspeech",
+    path="/data/saiakarsh/data/ytts_coq/ljspeech",
+    meta_file_train="metadata.csv",
+    language="en-us",
 )
 
 tel_config = BaseDatasetConfig(
@@ -61,18 +62,19 @@ tel_config = BaseDatasetConfig(
     dataset_name="ulca",
     path="/data/saiakarsh/data/ytts_coq/IITM_TTS_data_Phase2_Telugu_mono_male",
     language="tl",
+    phonemizer="unified_parser"
 )
 
-eng_config = BaseDatasetConfig(
-    formatter="ljspeech",
-    dataset_name="ljspeech",
-    path="/data/saiakarsh/data/ytts_coq/ljspeech",
-    meta_file_train="metadata.csv",
-    language="en",
+hin_config = BaseDatasetConfig(
+    formatter="ulca",
+    dataset_name="ulca",
+    path="/data/saiakarsh/data/ytts_coq/IITM_TTS_data_Phase2_Hindi_mono_male",
+    language="hn",
+    phonemizer="unified_parser"
 )
 
 # Add here all datasets configs, in our case we just want to train with the VCTK dataset then we need to add just VCTK. Note: If you want to add new datasets, just add them here and it will automatically compute the speaker embeddings (d-vectors) for this new dataset :)
-DATASETS_CONFIG_LIST = [hin_config, tel_config, eng_config]
+DATASETS_CONFIG_LIST = [eng_config, tel_config, hin_config]
 
 ### Extract speaker embeddings
 SPEAKER_ENCODER_CHECKPOINT_PATH = (
@@ -156,10 +158,10 @@ config = VitsConfig(
     save_checkpoints=True,
     target_loss="loss_1",
     print_eval=False,
-    use_phonemes=False,
-    phonemizer="espeak",
-    phoneme_language="en",
-    compute_input_seq_cache=True,
+    use_phonemes=True,
+    phonemizer="multi_phonemizer",
+    phoneme_cache_path="phoneme-cache",
+    precompute_num_workers=12,
     add_blank=True,
     text_cleaner="multilingual_cleaners",
     characters=CharactersConfig(
@@ -168,20 +170,33 @@ config = VitsConfig(
         eos="&",
         bos="*",
         blank=None,
-        characters="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz¯·ßàáâãäæçèéêëìíîïñòóôõöùúûüÿāąćēęěīıłńōőœśūűźżǎǐǒǔабвгдежзийклмнопрстуфхцчшщъыьэюяёєіїґँंःअआइईउऊऋऍऎएऐऑऒओऔकखगघङचछजझञटठडढणतथदधनऩपफबभमयरऱलळऴवशषसह़ऄऽािीुूृॄॅॆेैॉॊोौ्ॐक़ख़ग़ज़ड़ढ़फ़य़ॠ।॥०१२३४५६७८९॰ॲఁంఃఅఆఇఈఉఊఋఎఏఐఒఓఔకఖగఘఙచఛజఝఞటఠడఢణతథదధనపఫబభమయరఱలళవశషసహాిీుూృౄెేైొోౌ్ౕౖౙ౦౩\u200c\u200d–!'(),-.:;? ",
-        punctuations="!'(),-.:;? ",
-        phonemes="",
+        characters="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789",
+        punctuations=';:,.!?¡¿—…"«»“”',
+        phonemes="iyɨʉɯuɪʏʊeøɘəɵɤoɛœɜɞʌɔæɐaɶɑɒᵻʘɓǀɗǃʄǂɠǁʛpbtdʈɖcɟkɡqɢʔɴŋɲɳnɱmʙrʀⱱɾɽɸβfvθðszʃʒʂʐçʝxɣχʁħʕhɦɬɮʋɹɻjɰlɭʎʟˈˌːˑʍwɥʜʢʡɕʑɺɧʲɚ˞ɫ",
         is_unique=True,
         is_sorted=True,
     ),
-    phoneme_cache_path=None,
-    precompute_num_workers=12,
     start_by_longest=True,
     datasets=DATASETS_CONFIG_LIST,
     cudnn_benchmark=False,
     max_audio_len=SAMPLE_RATE * MAX_AUDIO_LEN_IN_SECONDS,
-    mixed_precision=False,
+    mixed_precision=True,
+    # Enable the weighted sampler
+    use_weighted_sampler=True,
+    # Ensures that all speakers are seen in the training batch equally no matter how many samples each speaker has
+    weighted_sampler_attrs={"speaker_name": 1.0},
+    weighted_sampler_multipliers={},
+    # It defines the Speaker Consistency Loss (SCL) α to 9 like the paper
+    speaker_encoder_loss_alpha=9.0,
+    use_language_embedding=True,
+    # test sentences for tensorboard dashboard
     test_sentences=[
+        [
+            "It took me quite a long time to develop a voice, and now that I have it I'm not going to be silent.",
+            "ljspeech",
+            None,
+            "en",
+        ],
         [
             "फसल अच्छी होने के कारण किसान बहुत खुश था",
             "ulca_Hindi_mono_male",
@@ -194,20 +209,7 @@ config = VitsConfig(
             None,
             "tl",
         ],
-        [
-            "It took me quite a long time to develop a voice, and now that I have it I'm not going to be silent.",
-            "ljspeech",
-            None,
-            "en",
-        ]
-    ],
-    # Enable the weighted sampler
-    use_weighted_sampler=True,
-    # Ensures that all speakers are seen in the training batch equally no matter how many samples each speaker has
-    weighted_sampler_attrs={"speaker_name": 1.0},
-    weighted_sampler_multipliers={},
-    # It defines the Speaker Consistency Loss (SCL) α to 9 like the paper
-    speaker_encoder_loss_alpha=9.0,
+   ],
 )
 
 # Load all the datasets samples and split traning and evaluation sets
@@ -219,7 +221,7 @@ train_samples, eval_samples = load_tts_samples(
 )
 
 # Init the model
-model = Vits.init_from_config(config, verbose=False)
+model = Vits.init_from_config(config)
 
 # Init the trainer and 🚀
 trainer = Trainer(

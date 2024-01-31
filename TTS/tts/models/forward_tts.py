@@ -856,7 +856,7 @@ class ForwardTTS(BaseTTS):
         """
         from TTS.utils.audio import AudioProcessor
 
-        ap = AudioProcessor.init_from_config(config)
+        ap = AudioProcessor.init_from_config(config, verbose=False)
         tokenizer, new_config = TTSTokenizer.init_from_config(config)
         speaker_manager = SpeakerManager.init_from_config(config, samples)
         return ForwardTTS(new_config, ap, tokenizer, speaker_manager)
