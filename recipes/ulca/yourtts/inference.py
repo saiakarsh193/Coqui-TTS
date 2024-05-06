@@ -10,7 +10,7 @@ syn = Synthesizer(
 )
 
 wav = syn.tts(
-    text = "और आप उन्हें बता सकते हैं कि यह मेरी और से है",
+    text = "अब, यह मानव-केन्द्रित दृष्टिकोण या मानव-केन्द्रित दृष्टिकोण का प्रतिस्थापन है",
 )
 
-syn.save_wav(wav, "test3.wav")
+syn.save_wav(wav, "test1.wav")

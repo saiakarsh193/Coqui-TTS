@@ -6,9 +6,9 @@ from trainer import Trainer, TrainerArgs
 from TTS.bin.compute_embeddings import compute_embeddings
 from TTS.bin.resample import resample_files
 from TTS.config.shared_configs import BaseDatasetConfig
-from TTS.tts.configs.vits_config import VitsConfig
+from TTS.tts.configs.vits_var_config import VitsVarConfig
 from TTS.tts.datasets import load_tts_samples
-from TTS.tts.models.vits import CharactersConfig, Vits, VitsArgs, VitsAudioConfig
+from TTS.tts.models.vits_var import CharactersConfig, Vits, VitsArgs, VitsAudioConfig
 from TTS.utils.downloaders import download_vctk
 
 torch.set_num_threads(24)
@@ -24,7 +24,7 @@ torch.set_num_threads(24)
 CURRENT_PATH = os.path.dirname(os.path.abspath(__file__))
 
 # Name of the run for the Trainer
-RUN_NAME = "yourtts_hin_tel_lj"
+RUN_NAME = "yourtts_hin"
 
 # Path where you want to save the models outputs (configs, checkpoints and tensorboard logs)
 OUT_PATH = os.path.dirname(os.path.abspath(__file__))  # "/raid/coqui/Checkpoints/original-YourTTS/"
@@ -72,7 +72,8 @@ eng_config = BaseDatasetConfig(
 )
 
 # Add here all datasets configs, in our case we just want to train with the VCTK dataset then we need to add just VCTK. Note: If you want to add new datasets, just add them here and it will automatically compute the speaker embeddings (d-vectors) for this new dataset :)
-DATASETS_CONFIG_LIST = [hin_config, tel_config, eng_config]
+DATASETS_CONFIG_LIST = [hin_config]
+# DATASETS_CONFIG_LIST = [hin_config, tel_config, eng_config]
 
 ### Extract speaker embeddings
 SPEAKER_ENCODER_CHECKPOINT_PATH = (
@@ -129,10 +130,12 @@ model_args = VitsArgs(
     # Useful parameters to enable multilingual training
     use_language_embedding=True,
     embedded_language_dim=4,
+    use_pitch=True,
+    use_energy=True
 )
 
 # General training config, here you can change the batch size and others useful parameters
-config = VitsConfig(
+config = VitsVarConfig(
     output_path=OUT_PATH,
     model_args=model_args,
     run_name=RUN_NAME,
@@ -156,11 +159,16 @@ config = VitsConfig(
     save_checkpoints=True,
     target_loss="loss_1",
     print_eval=False,
+    epochs=1000,
+    compute_f0=True,
+    f0_cache_path="f0_cache",
+    compute_energy=True,
+    energy_cache_path="energy_cache",
     use_phonemes=False,
     phonemizer="espeak",
     phoneme_language="en",
     compute_input_seq_cache=True,
-    add_blank=True,
+    add_blank=False,
     text_cleaner="multilingual_cleaners",
     characters=CharactersConfig(
         characters_class="TTS.tts.models.vits.VitsCharacters",
@@ -168,7 +176,7 @@ config = VitsConfig(
         eos="&",
         bos="*",
         blank=None,
-        characters="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz¯·ßàáâãäæçèéêëìíîïñòóôõöùúûüÿāąćēęěīıłńōőœśūűźżǎǐǒǔабвгдежзийклмнопрстуфхцчшщъыьэюяёєіїґँंःअआइईउऊऋऍऎएऐऑऒओऔकखगघङचछजझञटठडढणतथदधनऩपफबभमयरऱलळऴवशषसह़ऄऽािीुूृॄॅॆेैॉॊोौ्ॐक़ख़ग़ज़ड़ढ़फ़य़ॠ।॥०१२३४५६७८९॰ॲఁంఃఅఆఇఈఉఊఋఎఏఐఒఓఔకఖగఘఙచఛజఝఞటఠడఢణతథదధనపఫబభమయరఱలళవశషసహాిీుూృౄెేైొోౌ్ౕౖౙ౦౩\u200c\u200d–!'(),-.:;? ",
+        characters="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz¯·ßàáâãäæçèéêëìíîïñòóôõöùúûüÿāąćēęěīıłńōőœśūűźżǎǐǒǔабвгдежзийклмнопрстуфхцчшщъыьэюяёєіїґँंःअआइईउऊऋऍऎएऐऑऒओऔकखगघङचछजझञटठडढणतथदधनऩपफबभमयरऱलळऴवशषसह़ऄऽािीुूृॄॅॆेैॉॊोौ्ॐक़ख़ग़ज़ड़ढ़फ़य़ॠ।॥०१२३४५६७८९॰ॲఁంఃఅఆఇఈఉఊఋఎఏఐఒఓఔకఖగఘఙచఛజఝఞటఠడఢణతథదధనపఫబభమయరఱలళవశషసహాిీుూృౄెేైొోౌ్ౕౖౙ౦౩\u200c\u200d–",
         punctuations="!'(),-.:;? ",
         phonemes="",
         is_unique=True,
@@ -188,18 +196,18 @@ config = VitsConfig(
             None,
             "hn",
         ],
-        [
-            "ఏడు ప్రధాన పెలికాన్ జాతులు ఉన్నాయి గోధుమ పెలికాన్, పెరువియన్ పెలికాన్",
-            "ulca_Telugu_mono_male",
-            None,
-            "tl",
-        ],
-        [
-            "It took me quite a long time to develop a voice, and now that I have it I'm not going to be silent.",
-            "ljspeech",
-            None,
-            "en",
-        ]
+        # [
+        #     "ఏడు ప్రధాన పెలికాన్ జాతులు ఉన్నాయి గోధుమ పెలికాన్, పెరువియన్ పెలికాన్",
+        #     "ulca_Telugu_mono_male",
+        #     None,
+        #     "tl",
+        # ],
+        # [
+        #     "It took me quite a long time to develop a voice, and now that I have it I'm not going to be silent.",
+        #     "ljspeech",
+        #     None,
+        #     "en",
+        # ]
     ],
     # Enable the weighted sampler
     use_weighted_sampler=True,

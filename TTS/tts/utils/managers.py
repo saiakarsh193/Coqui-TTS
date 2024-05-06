@@ -326,7 +326,7 @@ class EmbeddingManager(BaseIDManager):
         self.encoder_criterion = self.encoder.load_checkpoint(
             self.encoder_config, model_path, eval=True, use_cuda=use_cuda, cache=True
         )
-        self.encoder_ap = AudioProcessor(**self.encoder_config.audio)
+        self.encoder_ap = AudioProcessor(**self.encoder_config.audio, verbose=False)
 
     def compute_embedding_from_clip(self, wav_file: Union[str, List[str]]) -> list:
         """Compute a embedding from a given audio file.

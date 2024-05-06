@@ -740,6 +740,150 @@ class VitsGeneratorLoss(nn.Module):
         return_dict["loss"] = loss
         return return_dict
 
+class VitsVarGeneratorLoss(nn.Module):
+    def __init__(self, c: Coqpit):
+        super().__init__()
+        self.kl_loss_alpha = c.kl_loss_alpha
+        self.gen_loss_alpha = c.gen_loss_alpha
+        self.feat_loss_alpha = c.feat_loss_alpha
+        self.dur_loss_alpha = c.dur_loss_alpha
+        self.mel_loss_alpha = c.mel_loss_alpha
+        self.spk_encoder_loss_alpha = c.speaker_encoder_loss_alpha
+        self.stft = TorchSTFT(
+            c.audio.fft_size,
+            c.audio.hop_length,
+            c.audio.win_length,
+            sample_rate=c.audio.sample_rate,
+            mel_fmin=c.audio.mel_fmin,
+            mel_fmax=c.audio.mel_fmax,
+            n_mels=c.audio.num_mels,
+            use_mel=True,
+            do_amp_to_db=True,
+        )
+        if c.model_args.use_pitch:
+            self.pitch_loss = MSELossMasked(False)
+            self.pitch_loss_alpha = c.pitch_loss_alpha
+        if c.model_args.use_energy:
+            self.energy_loss = MSELossMasked(False)
+            self.energy_loss_alpha = c.energy_loss_alpha
+
+    @staticmethod
+    def feature_loss(feats_real, feats_generated):
+        loss = 0
+        for dr, dg in zip(feats_real, feats_generated):
+            for rl, gl in zip(dr, dg):
+                rl = rl.float().detach()
+                gl = gl.float()
+                loss += torch.mean(torch.abs(rl - gl))
+        return loss * 2
+
+    @staticmethod
+    def generator_loss(scores_fake):
+        loss = 0
+        gen_losses = []
+        for dg in scores_fake:
+            dg = dg.float()
+            l = torch.mean((1 - dg) ** 2)
+            gen_losses.append(l)
+            loss += l
+
+        return loss, gen_losses
+
+    @staticmethod
+    def kl_loss(z_p, logs_q, m_p, logs_p, z_mask):
+        """
+        z_p, logs_q: [b, h, t_t]
+        m_p, logs_p: [b, h, t_t]
+        """
+        z_p = z_p.float()
+        logs_q = logs_q.float()
+        m_p = m_p.float()
+        logs_p = logs_p.float()
+        z_mask = z_mask.float()
+
+        kl = logs_p - logs_q - 0.5
+        kl += 0.5 * ((z_p - m_p) ** 2) * torch.exp(-2.0 * logs_p)
+        kl = torch.sum(kl * z_mask)
+        l = kl / torch.sum(z_mask)
+        return l
+
+    @staticmethod
+    def cosine_similarity_loss(gt_spk_emb, syn_spk_emb):
+        return -torch.nn.functional.cosine_similarity(gt_spk_emb, syn_spk_emb).mean()
+
+    def forward(
+        self,
+        mel_slice,
+        mel_slice_hat,
+        z_p,
+        logs_q,
+        m_p,
+        logs_p,
+        z_len,
+        scores_disc_fake,
+        feats_disc_fake,
+        feats_disc_real,
+        loss_duration,
+        input_lens,
+        pitch_output,
+        pitch_target,
+        energy_output,
+        energy_target,
+        use_speaker_encoder_as_loss=False,
+        gt_spk_emb=None,
+        syn_spk_emb=None,
+    ):
+        """
+        Shapes:
+            - mel_slice : :math:`[B, 1, T]`
+            - mel_slice_hat: :math:`[B, 1, T]`
+            - z_p: :math:`[B, C, T]`
+            - logs_q: :math:`[B, C, T]`
+            - m_p: :math:`[B, C, T]`
+            - logs_p: :math:`[B, C, T]`
+            - z_len: :math:`[B]`
+            - scores_disc_fake[i]: :math:`[B, C]`
+            - feats_disc_fake[i][j]: :math:`[B, C, T', P]`
+            - feats_disc_real[i][j]: :math:`[B, C, T', P]`
+        """
+        loss = 0.0
+        return_dict = {}
+        z_mask = sequence_mask(z_len).float()
+        # compute losses
+        loss_kl = (
+            self.kl_loss(z_p=z_p, logs_q=logs_q, m_p=m_p, logs_p=logs_p, z_mask=z_mask.unsqueeze(1))
+            * self.kl_loss_alpha
+        )
+        loss_feat = (
+            self.feature_loss(feats_real=feats_disc_real, feats_generated=feats_disc_fake) * self.feat_loss_alpha
+        )
+        loss_gen = self.generator_loss(scores_fake=scores_disc_fake)[0] * self.gen_loss_alpha
+        loss_mel = torch.nn.functional.l1_loss(mel_slice, mel_slice_hat) * self.mel_loss_alpha
+        loss_duration = torch.sum(loss_duration.float()) * self.dur_loss_alpha
+        loss = loss_kl + loss_feat + loss_mel + loss_gen + loss_duration
+
+        if hasattr(self, "pitch_loss") and self.pitch_loss_alpha > 0:
+            pitch_loss = self.pitch_loss(pitch_output.transpose(1, 2), pitch_target.transpose(1, 2), input_lens)
+            loss = loss + self.pitch_loss_alpha * pitch_loss
+            return_dict["loss_pitch"] = self.pitch_loss_alpha * pitch_loss
+
+        if hasattr(self, "energy_loss") and self.energy_loss_alpha > 0:
+            energy_loss = self.energy_loss(energy_output.transpose(1, 2), energy_target.transpose(1, 2), input_lens)
+            loss = loss + self.energy_loss_alpha * energy_loss
+            return_dict["loss_energy"] = self.energy_loss_alpha * energy_loss
+
+        if use_speaker_encoder_as_loss:
+            loss_se = self.cosine_similarity_loss(gt_spk_emb, syn_spk_emb) * self.spk_encoder_loss_alpha
+            loss = loss + loss_se
+            return_dict["loss_spk_encoder"] = loss_se
+        # pass losses to the dict
+        return_dict["loss_gen"] = loss_gen
+        return_dict["loss_kl"] = loss_kl
+        return_dict["loss_feat"] = loss_feat
+        return_dict["loss_mel"] = loss_mel
+        return_dict["loss_duration"] = loss_duration
+        return_dict["loss"] = loss
+        return return_dict
 
 class VitsDiscriminatorLoss(nn.Module):
     def __init__(self, c: Coqpit):
